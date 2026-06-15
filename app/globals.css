@@ -2,7 +2,7 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-@custom-variant dark (&:is(.dark *));
+/* Removed unsupported @custom-variant rule to avoid unknown at-rule warning */
 
 :root {
   --color-background: var(--background);

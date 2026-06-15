@@ -1,0 +1,28 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+// when writing in prisma you dont use SQL it will do it for you
+
+model Profile{
+//name        type      @rules or behavior 
+  id          String    @id @default(uuid()) //uuid is a long random string (safer than a simple counting num for user ID)
+  email       String    @unique //means you cannot have two accts w same email 
+  points      Int       @default(0) //every new user starts w default of 0 pts
+  background  String    @default("cozy") //every new user starts w the cozy theme 
+  createdAt   DateTime  @default(now()) //now() fills in current date and time 
+}
+
+//@id = fields primary key, unique identifier for each row 
+//@default(...) sets a value automatically when a new row is created and you didnt provide one 
