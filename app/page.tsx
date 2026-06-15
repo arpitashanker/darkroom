@@ -1,4 +1,7 @@
+//main route where u put UI 
 import Image from "next/image";
+
+//a file can nly have 1 default function 
 
 export default function Home() {
   return (
