@@ -5,7 +5,6 @@
 
 generator client {
   provider = "prisma-client"
-  output   = "../lib/generated/prisma"
 }
 
 datasource db {
@@ -15,7 +14,7 @@ datasource db {
 }
 // when writing in prisma you dont use SQL it will do it for you
 
-model Profile{
+model Profile{ //model is blueprint that defines the structure of your data 
 //name        type      @rules or behavior 
   id          String    @id @default(uuid()) //uuid is a long random string (safer than a simple counting num for user ID)
   email       String    @unique //means you cannot have two accts w same email 
