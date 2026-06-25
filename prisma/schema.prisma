@@ -8,20 +8,34 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
+
 // when writing in prisma you dont use SQL it will do it for you
 
-model Profile{ //model is blueprint that defines the structure of your data 
-//name        type      @rules or behavior 
-  id          String    @id @default(uuid()) //uuid is a long random string (safer than a simple counting num for user ID)
-  email       String    @unique //means you cannot have two accts w same email 
-  points      Int       @default(0) //every new user starts w default of 0 pts
-  background  String    @default("cozy") //every new user starts w the cozy theme 
-  createdAt   DateTime  @default(now()) //now() fills in current date and time 
+model Profile {
+  //name        type      @rules or behavior 
+  id         String   @id @default(uuid()) //uuid is a long random string (safer than a simple counting num for user ID)
+  email      String   @unique //means you cannot have two accts w same email 
+  points     Int      @default(0) //every new user starts w default of 0 pts
+  background String   @default("cozy") //every new user starts w the cozy theme 
+  createdAt  DateTime @default(now()) //now() fills in current date and time 
+  photos     Photo[]
 }
 
 //@id = fields primary key, unique identifier for each row 
 //@default(...) sets a value automatically when a new row is created and you didnt provide one 
+
+//Add this relation line INSIDE your existing Profile model --
+model Photo {
+  id        String   @id @default(uuid()) //unique id for each photo, auto generated 
+  path      String
+  x         Int      @default(0) // horicontal psoition on the board
+  y         Int      @default(0) //vertical position on board 
+  frame     String   @default("classic") //which polaroid frame style this photo uses 
+  createdAt DateTime @default(now()) //when it was uploaded
+  profileId String
+  profile   Profile  @relation(fields: [profileId], references: [id]) //connected profileId to Profile.id
+}
