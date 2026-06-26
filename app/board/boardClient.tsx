@@ -1,6 +1,6 @@
 "use client" //marks as a backend component (runs only in server)
 
-import { useState } from "react"; // lets us remember things on screen (signed photo URLs)
+import { useState, useEffect } from "react"; // lets us remember things on screen (signed photo URLs)
 import { createClient } from "@/utils/supabase/client"; //browser Supabase (Task 4)
 import { saveBackground, savePhoto } from "./actions"; //our backend function 
 
@@ -24,29 +24,67 @@ export default function BoardClient({
     //Remember a map of photoID -> a temporary viewable link for that private file:
     const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
 
+    //Fetch a signed URL for every photo, AFTEr the page renders-
+    //useEffect runs once after render (and again if `photos` changes)
+    //this is the reliable place to do async work like asking supabase for links 
+    useEffect(() => {
+        //Fedine an async helper inside the effect (effects themselves can be async directly )
+        async function loadUrls(){
+            const updates: Record<string, string> = {} //collect new links here 
+
+            //Loop over every photo and request a temporary signed link for each:
+            for (const photo of photos){
+                const {data} = await supabase.storage
+                    .from("photos")                 //the private bucket
+                    .createSignedUrl(photo.path, 60*60);  //valid for 1 hour 
+                  if (data?.signedUrl){
+                    updates[photo.id] = data.signedUrl; //stor eit under this photos id
+                  }
+            }
+            setSignedUrls(updates); //save all the links at once, which re renders the polaroids
+        }
+        loadUrls(); // actually run it 
+    }, [photos]); //re-run whenever the list of photos change 
+
     //when the user clicks a background thumbnail
     async function pickBackground(bg: string){
         await saveBackground(bg); //call the backend to save it (this also refreshed the page)
     }
 
     //When the user picks a file to upload 
-    async function handleUpload(e: React.ChangeEvent<HTMLInputElement>){
-        const file = e.target.files?.[0]; //the file the user sleected 
-        if(!file) return; //if they chancelled, do nothing 
-
-        //Build a unique path inside the bucket: this user' filder + a timestamped name
-        //Putting it under the userID folder is what lets us lock it down per-user later
-        const path = '${userId}/${Date.now()}-${file.name}';
-
-        //upload the actual file bytes to the private "photos" bucket
-        const { error } = await supabase.storage.from("photos").upload(path, file);
-        if (error){
-            alert("Apload failed " + error.message); //show the real error so you can debug
-            return;
-        }
-        //tell our backend to record this photo in the dtaabse (with a default frame):
-        await savePhoto(path, "classic"); // page refreshes ansd the new photo will appear 
+    async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];        // the file the user selected — get this FIRST
+    if (!file) {
+      console.log("No file selected");        // did we even get a file?
+      return;
     }
+    console.log("Got file:", file.name);      // confirm we have it
+
+    // Check whether Supabase sees us as logged in, right before uploading:
+    const { data: sessionData } = await supabase.auth.getSession();
+    console.log("Session user id:", sessionData.session?.user?.id);  // should print your long user ID
+
+    // Build the storage path ONCE (backticks required):
+    const path = `${userId}/${Date.now()}-${file.name}`;
+    console.log("Upload path:", path);        // compare its first folder to the id above
+
+    // Upload the file to the private bucket:
+    const { data, error } = await supabase.storage
+      .from("photos")
+      .upload(path, file);
+
+    if (error) {
+      console.error("UPLOAD ERROR:", error);  // the real reason, in the console
+      alert("Upload failed: " + error.message);
+      return;
+    }
+
+    console.log("Upload succeeded:", data);   // confirm Supabase accepted it
+
+    // Now record it in the database:
+    await savePhoto(path, "classic");
+    console.log("savePhoto finished");        // confirm the DB save ran
+  }
     
     //Turn private file path into a temporary viewable link
     //private buckets dont have public URLs so we ask supabase for a short lived signed one
@@ -54,7 +92,7 @@ export default function BoardClient({
         if (signedUrls[photo.id]) return; //already have one for this photo -> skip
         const {data} = await supabase.storage
             .from("photos") //the bucket 
-            .createSignedUrls(photo.path, 60*60); // valid for 1 hour 
+            .createSignedUrl(photo.path, 60*60); // valid for 1 hour 
         if (data?.signedUrl){
             //save it so the <img> below can display it:
             setSignedUrls((prev) => ({...prev, [photo.id]: data.signedUrl}));
@@ -94,11 +132,12 @@ export default function BoardClient({
           <label
             style={{
                 display: "inline-block",        //sit nicely inline
-                background: "white",            //white button
-                padding: "0.5rem 1 rem",        //comfortable size
+                background: "grey",            //white button
+                padding: ".5rem 1 rem",        //comfortable size
                 borderRadius: 6,                //rounded
                 cursor: "pointer",              //clickable
-                marginBottom: "1rem"            //space below
+                marginBottom: "4rem",            //space below
+                
             }}
           >
             Upload photo 

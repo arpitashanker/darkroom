@@ -2,7 +2,7 @@ import { createServerClient } from '@supabase/ssr' //import the helper that buil
 import { NextResponse, type NextRequest } from 'next/server'//import the Next.js request and response types for middleware 
 
 //Next.js automaticallyruns this function on every request that matches the config 
-export async function middleware(request: NextRequest){
+export async function proxy(request: NextRequest){
     //Start with a response that just passes the request through, unchanged
     let supabaseResponse = NextResponse.next({
         request
