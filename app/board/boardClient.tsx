@@ -1,8 +1,8 @@
-"use client" //marks as a backend component (runs only in server)
+"use client" //marks as a client component (runs only in server)
 
-import { useState, useEffect } from "react"; // lets us remember things on screen (signed photo URLs)
+import { useState, useEffect, useRef } from "react"; // lets us remember things on screen (signed photo URLs)
 import { createClient } from "@/utils/supabase/client"; //browser Supabase (Task 4)
-import { saveBackground, savePhoto } from "./actions"; //our backend function 
+import { saveBackground, savePhoto, savePhotoPosition } from "./actions"; //our backend function 
 
 //Describe the shape of one photo coiming form the database (Typescript safety):
 type Photo = { id: string; path: string; frame: string; x: number; y: number};
@@ -14,15 +14,43 @@ export default function BoardClient({
     background, // the user's currently-chgosen background 
     photos, // the user's photos from the database 
     userId, // the logged-in user's id (used to namespace their files)
+    points, // the user's current points totoal 
 }: {
     background: string;
     photos: Photo[];
     userId: string;
+    points: number;
 }) {
     const supabase = createClient(); //browser supabase client for uploading + signing URls
 
     //Remember a map of photoID -> a temporary viewable link for that private file:
     const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
+    
+    const[positions, setPositions] = useState<Record<string, {x: number; y: number} >>(()=>{
+        const initial: Record<string, {x: number; y: number}> = {};
+            for (const p of photos){
+                initial[p.id] = {x:p.x, y:p.y}; // start each photo where the database says it is 
+            }
+        return initial;
+    });
+
+    useEffect(() =>{
+        setPositions((prev) => {
+            const next = {...prev};
+            for(const p of photos){
+                if (!next[p.id]){
+                    next[p.id] = {x: p.x, y: p.y}
+                }
+            }
+            return next;
+        });
+    }, [photos]);
+
+    //"ref" to track an in progress drag. we use a red (not state) vecause it changes many times per second as the mouse moves,
+    //and we dont want to trigger a re-render on every tiny movement for the bookkeeping itself
+    //it holds: which photo is being dragged, and the offset between the mouse 
+    //and the polaroids top left corner (so the polaroid doesnt "jump" to the cursor when you grab it by middle)
+    const dragRef = useRef<{ id: string; offsetX: number; offsetY: number } | null>(null);
 
     //Fetch a signed URL for every photo, AFTEr the page renders-
     //useEffect runs once after render (and again if `photos` changes)
@@ -85,7 +113,53 @@ export default function BoardClient({
     await savePhoto(path, "classic");
     console.log("savePhoto finished");        // confirm the DB save ran
   }
-    
+
+  //Drag Logic
+  //1: mouse pressed Down on a polaroid -> start a drag 
+    function handleMouseDown(e: React.MouseEvent, photoId: string){
+        const current = positions[photoId]; //where this polaroid currently is 
+        //Record which photo we grabbed, and how far the cursor is from its corner 
+        //e.clientX/Y is the mouse positions on the page; current.y/y is the polaroid's 
+        //corner . The different keeps the polaroid from snapping to the cursor 
+        dragRef.current={
+            id: photoId,
+            offsetX: e.clientX - current.x,
+            offsetY: e.clientY - current.y,
+        };
+    }
+//2: mouse moves anywehre on the board -> if were dragging, move the polaroid 
+    function handleMouseMove(e: React.MouseEvent){
+        const drag = dragRef.current;
+        if (!drag) return; //not dragging anything -> ignore 
+
+        //New top-left corner = current mouse position minus the grab offset:
+        const newX = e.clientX-drag.offsetX;
+        const newY = e.clientY-drag.offsetY;
+
+        //update just this photo's position in state, so it moves on screen:
+        setPositions((prev) => ({
+            ...prev,
+            [drag.id]: {x: newX, y: newY},
+        }));
+    }
+//3: mouse Released -> stop dragging and SAVE the final position to the DB
+async function handleMouseUp(){
+    const drag = dragRef.current;
+    if (!drag) return; // werent dragging -> nothing to do 
+
+    const finalPos = positions[drag.id]; //where it ended up
+    dragRef.current = null; //clear the drag BEFORE the await 
+
+    //Save to the database in the background. We dont reload the page;
+    //the polaroid is already where the user dropped it
+    await savePhotoPosition(drag.id, finalPos.x, finalPos.y);
+
+}
+
+
+
+
+
     //Turn private file path into a temporary viewable link
     //private buckets dont have public URLs so we ask supabase for a short lived signed one
     async function getSignedUrl(photo: Photo){
@@ -99,92 +173,123 @@ export default function BoardClient({
         }
     }
 
-    return(
-        //full-screen container; the chosen background fills it:
+
+        return (
+        //full-screen container; the chosen background fills it.
+        //We attach mouse MOVE and UP here (on the whole board) so the drag keeps
+        //working even if the cursor leaves the small polaroid while moving fast.
         <div
-          style={{
-            minHeight: "100vh",                         //fill the whole screen height 
-            backgroundImage: `url(${background})`,      //the user's chosen background 
-            backgroundSize: "cover",                    //scale it to cover the screen 
-            backgroundPosition: "center",               //center it 
-            padding: "1rem",                            //a little breathing room
-          }}
-          >
+            onMouseMove={handleMouseMove}   // NEW: track movement across the whole board
+            onMouseUp={handleMouseUp}       // NEW: finish the drag anywhere you release
+            onMouseLeave={handleMouseUp}    // NEW: also finish if the mouse leaves the board
+            style={{
+                minHeight: "100vh",                       //fill the whole screen height
+                backgroundImage: `url(${background})`,    //the user's chosen background
+                backgroundSize: "cover",                  //scale it to cover the screen
+                backgroundPosition: "center",             //center it
+                padding: "1rem",                          //a little breathing room
+                position: "relative",                     // NEW: makes this the anchor for absolutely-positioned polaroids
+                overflow: "hidden",                       // NEW: hide anything dragged off the edge
+            }}
+        >
+            {/* Points total (NEW) */}
+            <div
+                style={{
+                    display: "inline-block",
+                    background: "rgba(0,0,0,0.6)", //semi-transparent dark pill so it reads on any background
+                    color: "white",
+                    padding: "0.4rem 0.9rem",
+                    borderRadius: 999,             //fully rounded pill
+                    fontWeight: "bold",
+                    marginBottom: "1rem",
+                }}
+            >
+                ⭐ {points} points
+            </div>
+
             {/* Background picker: three clickable thumbnails */}
-            <div style={{display: "flex", gap: "0.5rem", marginBottom: "1rem"}}>
+            <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
                 {BACKGROUNDS.map((bg) => (
                     <img
-                      key={bg}
-                      src={bg}
-                      onClick={() => pickBackground(bg)}
-                      style={{
-                        width: 80,
-                        height: 50,
-                        objectFit: "cover",
-                        cursor: "pointer",
-                        border: background === bg ? "3px solid white" : "1px solid gray",
-                        borderRadius: 4,
-                      }}
-                      />
+                        key={bg}
+                        src={bg}
+                        onClick={() => pickBackground(bg)}
+                        style={{
+                            width: 80,
+                            height: 50,
+                            objectFit: "cover",
+                            cursor: "pointer",
+                            border: background === bg ? "3px solid white" : "1px solid gray",
+                            borderRadius: 4,
+                        }}
+                    />
                 ))}
-          </div>
-          {/* Upload button (a styled file input)*/}
-          <label
-            style={{
-                display: "inline-block",        //sit nicely inline
-                background: "grey",            //white button
-                padding: ".5rem 1 rem",        //comfortable size
-                borderRadius: 6,                //rounded
-                cursor: "pointer",              //clickable
-                marginBottom: "4rem",            //space below
-                
-            }}
-          >
-            Upload photo 
-            <input
-               type="file"                      //a file picker 
-               accept="image/*"                 //only allow images
-               onChange={handleUpload}          //run our upload handler when a file is chosen
-               style={{ display: "none"}}       //hide the ugly default input; the label is the button 
-            />
-            </label>
-            {/* the photos, each in a polaroid frame*/}
-            <div style={{display:"flex", flexWrap:"wrap", gap:"1rem" }}>
-               {photos.map((photo) => {
-                //Ask for a signed URL the first time we render this photo
-                if(!signedUrls[photo.id]) getSignedUrl(photo);
+            </div>
 
-                return(
-                    //the polaroid frame: white box, thick bottom edge, soft shadow -- pure CSS, no PNG needed 
+            {/* Upload button (a styled file input) */}
+            <label
+                style={{
+                    display: "inline-block",        //sit nicely inline
+                    background: "grey",             //button color
+                    padding: "0.5rem 1rem",         //comfortable size (fixed: was "1 rem")
+                    borderRadius: 6,                //rounded
+                    cursor: "pointer",              //clickable
+                    marginBottom: "1rem",           //space below
+                }}
+            >
+                Upload photo
+                <input
+                    type="file"                      //a file picker
+                    accept="image/*"                 //only allow images
+                    onChange={handleUpload}          //run our upload handler when a file is chosen
+                    style={{ display: "none" }}      //hide the ugly default input; the label is the button
+                />
+            </label>
+
+            {/* The photos. Each one is now ABSOLUTELY positioned at its own x/y,
+                and draggable. They are NO LONGER in a flex row. */}
+            {photos.map((photo) => {
+                // Where should this polaroid sit? Prefer our live `positions` map
+                // (updates instantly while dragging); fall back to the DB value.
+                const pos = positions[photo.id] ?? { x: photo.x, y: photo.y };
+
+                return (
+                    //the polaroid frame, now positioned freely and grabbable:
                     <div
-                      key={photo.id}            //unique key per photo
-                      style={{
-                        background: "white",    //the white polaroid card
-                        padding: "10px 10px 30px", //thin top/sides, thick bottom (classic Polaroid look)
-                        boxShadow: "0 4px 10px rgba(0,0,0,0.3)", //slight corner softening 
-                        borderRadius: 2,
-                      }}
+                        key={photo.id}
+                        onMouseDown={(e) => handleMouseDown(e, photo.id)} // NEW: grab to start dragging
+                        style={{
+                            position: "absolute",          // NEW: float anywhere on the board
+                            left: pos.x,                   // NEW: horizontal position from x
+                            top: pos.y,                    // NEW: vertical position from y
+                            background: "white",           //the white polaroid card
+                            padding: "10px 10px 30px",     //thin top/sides, thick bottom (classic Polaroid look)
+                            boxShadow: "0 4px 10px rgba(0,0,0,0.3)", //soft shadow
+                            borderRadius: 2,
+                            cursor: "grab",                // NEW: show the grab hand so it's clearly draggable
+                            userSelect: "none",            // NEW: don't highlight text while dragging
+                        }}
                     >
                         {signedUrls[photo.id] ? (        //do we have a viewable link yet?
                             <img
-                              src={signedUrls[photo.id]} //the temporary signed link to the private file
-                              alt="polaroid"             //accessibility text
-                              style={{
-                                width: 200,              //fixed photo width
-                                height: 200,             //fixed photo height (square, like a polaroid)
-                                objectFit: "cover",      //crop to fill without distortion
-                                display: "block"         //remove tiny gap under the image
-                              }}
+                                src={signedUrls[photo.id]} //the temporary signed link to the private file
+                                alt="polaroid"             //accessibility text
+                                draggable={false}          // NEW: stop the browser's built-in image drag from fighting ours
+                                style={{
+                                    width: 200,              //fixed photo width
+                                    height: 200,             //fixed photo height (square, like a polaroid)
+                                    objectFit: "cover",      //crop to fill without distortion
+                                    display: "block",        //remove tiny gap under the image
+                                    pointerEvents: "none",   // NEW: clicks/drags pass through to the frame, not the img
+                                }}
                             />
-                        ):(
-                            //While the signed URL loads, show a placeholder so the layout doesn't jump
-                            <div style={{ width: 200, height: 200, background: "#eee"}} />
-                        )
-                        }
+                        ) : (
+                            //While the signed URL loads, show a placeholder so the layout doesn't jump:
+                            <div style={{ width: 200, height: 200, background: "#eee" }} />
+                        )}
                     </div>
                 );
-               })} 
-            </div>
+            })}
         </div>
     );
 }
