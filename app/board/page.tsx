@@ -5,7 +5,9 @@ import { PrismaClient } from "@prisma/client";        // database client
 import { createServerClient } from "@supabase/ssr";   // server-side Supabase
 import { cookies } from "next/headers";               // read the session cookie
 import { redirect } from "next/navigation";           // bounce logged-out users
-import BoardClient from "./boardClient";              // the interactive part (Task 6b)
+import  BoardClient   from "./boardClient";  
+import { StickerTray } from "./StickerTray";
+import { DraggableSticker } from "./DraggableSticker";            // the interactive part (Task 6b)
 
 const prisma = new PrismaClient(); // one Prisma instance for queries
 
@@ -24,8 +26,8 @@ export default async function BoardPage() {
     }
   );
 
-  const { data } = await supabase.auth.getUser(); // who is this?
-  if (!data.user) redirect("/login");             // not logged in → send to login (your protected route)
+    const { data } = await supabase.auth.getUser(); // who is this?
+    if (!data.user) redirect("/login");         // not logged in → send to login (your protected route)
 
   // Load this user's Profile (so we know their chosen background):
   // Load this user's Profile — and create one if it doesn't exist yet:
@@ -49,14 +51,26 @@ export default async function BoardPage() {
     where: { profileId: data.user.id }, // only THIS user's photos
     orderBy: { createdAt: "asc" },      // oldest first (stable order)
   });
+
+  //already fetch the profile and photos. add the stickers:
+  const placedStickers = await prisma.placedSticker.findMany({
+    where: { profileId: data.user.id },
+  });
+  //The in the jsx, alongside you <StickerTray /> and polaroids:
+  //<StickerTrap points={profile.points} />
+  // {{placedSticker.map((s) => DraggableSticker key={s.id} sticker={s} />)}}
   
+
+
   // Hand the data to the interactive client component:
   return (
-    <BoardClient
-      background={profile?.background ?? "/backgrounds/bg1.png"} // chosen bg, or a default
-      photos={photos}      // the user's photos
-      userId={data.user.id} // needed to build the upload file path
-      points={profile?.points ?? 0} //their current points total 
-    />
-  );
+  <BoardClient
+    background={profile?.background ?? "/backgrounds/bg1.png"}
+    photos={photos}
+    userId={data.user.id}
+    points={profile?.points ?? 0}
+    placedStickers={placedStickers}  // NEW — hand the stickers to the client too
+  />
+);
+  
 }

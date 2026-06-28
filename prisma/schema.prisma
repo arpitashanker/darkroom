@@ -16,13 +16,14 @@ datasource db {
 // when writing in prisma you dont use SQL it will do it for you
 
 model Profile {
-  //name        type      @rules or behavior 
-  id         String   @id @default(uuid()) //uuid is a long random string (safer than a simple counting num for user ID)
-  email      String   @unique //means you cannot have two accts w same email 
-  points     Int      @default(0) //every new user starts w default of 0 pts
-  background String   @default("cozy") //every new user starts w the cozy theme 
-  createdAt  DateTime @default(now()) //now() fills in current date and time 
-  photos     Photo[]
+  //name              type      @rules or behavior 
+  id                  String   @id @default(uuid()) //uuid is a long random string (safer than a simple counting num for user ID)
+  email               String   @unique //means you cannot have two accts w same email 
+  points              Int      @default(0) //every new user starts w default of 0 pts
+  background          String   @default("cozy") //every new user starts w the cozy theme 
+  createdAt           DateTime @default(now()) //now() fills in current date and time 
+  photos              Photo[]
+  placedStickers      PlacedSticker[] //a user can place many stickers 
 }
 
 //@id = fields primary key, unique identifier for each row 
@@ -38,4 +39,19 @@ model Photo {
   createdAt DateTime @default(now()) //when it was uploaded
   profileId String
   profile   Profile  @relation(fields: [profileId], references: [id]) //connected profileId to Profile.id
+}
+//A sticker the user has unlocked AND placed on thier board
+//One row = one sticker sitting at one spot on the persons board 
+model PlacedSticker{
+  id              String     @id @default(uuid()) //unique id for each photo, auto generated 
+  stickerKey      String                          // "sticker-1: tells us which PNG 
+  x               Float      @default(0)          // horicontal psoition on the board
+  y               Float      @default(0)          //vertical position on board 
+
+//Link this sticker to the Profile (user) that owns it 
+profile           Profile    @relation(fields: [profileId], references: [id])
+profileId         String                          //The owner's Profile id 
+
+createdAt         DateTime   @default(now())
+
 }

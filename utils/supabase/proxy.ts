@@ -37,3 +37,4 @@ export async function updateSession(request: NextRequest){
     //hand the (possibly cookie-updates) response back to Next.js
     return supabaseResponse 
 }
+

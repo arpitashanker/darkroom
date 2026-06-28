@@ -3,6 +3,9 @@
 import { useState, useEffect, useRef } from "react"; // lets us remember things on screen (signed photo URLs)
 import { createClient } from "@/utils/supabase/client"; //browser Supabase (Task 4)
 import { saveBackground, savePhoto, savePhotoPosition } from "./actions"; //our backend function 
+import { StickerTray } from "./StickerTray";
+import { DraggableSticker } from "./DraggableSticker";
+import type { PlacedSticker } from "@prisma/client"; // Prisma generated this type when you ran `npx prisma generate`
 
 //Describe the shape of one photo coiming form the database (Typescript safety):
 type Photo = { id: string; path: string; frame: string; x: number; y: number};
@@ -11,15 +14,17 @@ type Photo = { id: string; path: string; frame: string; x: number; y: number};
 const BACKGROUNDS = ["/backgrounds/bg1.png", "/backgrounds/bg2.png", "/backgrounds/bg3.png"];
 
 export default function BoardClient({
-    background, // the user's currently-chgosen background 
-    photos, // the user's photos from the database 
+    background, // the user's currently-chosen background
+    photos, // the user's photos from the database
     userId, // the logged-in user's id (used to namespace their files)
-    points, // the user's current points totoal 
+    points, // the user's current points total
+    placedStickers, // NEW: the user's placed stickers from the database
 }: {
     background: string;
     photos: Photo[];
     userId: string;
     points: number;
+    placedStickers: PlacedSticker[]; // NEW: an array of sticker rows
 }) {
     const supabase = createClient(); //browser supabase client for uploading + signing URls
 
@@ -208,6 +213,7 @@ async function handleMouseUp(){
             </div>
 
             {/* Background picker: three clickable thumbnails */}
+            <StickerTray points={points} />
             <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
                 {BACKGROUNDS.map((bg) => (
                     <img
@@ -290,6 +296,11 @@ async function handleMouseUp(){
                     </div>
                 );
             })}
+
+            {/* Placed stickers — same board surface as the polaroids, so they drag the same way */}
+            {placedStickers.map((sticker) => (
+                <DraggableSticker key={sticker.id} sticker={sticker} />
+            ))}
         </div>
     );
 }
