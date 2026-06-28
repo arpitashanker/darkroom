@@ -13,6 +13,8 @@ type Photo = { id: string; path: string; frame: string; x: number; y: number};
 //The three background choices (must match the filenames you put in public/background/);
 const BACKGROUNDS = ["/backgrounds/bg1.png", "/backgrounds/bg2.png", "/backgrounds/bg3.png"];
 
+// Delete a photo row — only if it belongs to the logged-in user.
+
 export default function BoardClient({
     background, // the user's currently-chosen background
     photos, // the user's photos from the database

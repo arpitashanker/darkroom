@@ -8,5 +8,5 @@ export function createClient(){
         //the "!" tells TypeScript "this value exists" (Its in the .env)
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    )
+    );
 }

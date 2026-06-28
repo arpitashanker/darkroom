@@ -4,6 +4,7 @@ import {PrismaClient} from "@prisma/client"; //your database client
 import {createServerClient} from "@supabase/ssr" //Supabase client for the server 
 import {cookies} from "next/headers"; //lets the server read the logged-in user's cookies 
 import {revalidatePath} from "next/cache";
+import { createClient } from "@/utils/supabase/server";
 //import BoardClient from "./boardClient";
 
 

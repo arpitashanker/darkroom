@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { moveSticker } from "./sticker-actions";
+import { moveSticker, deleteSticker } from "./sticker-actions"; // add deleteSticker
 
 type Sticker = {id: string; stickerKey: string; x: number; y: number};
+// Delete a placed sticker — only if it belongs to the logged-in user.
+
 
 export function DraggableSticker({ sticker }: {sticker: Sticker}){
     //Local position so dragging feels instant (we save to the DB when the drag ends)
@@ -25,6 +27,12 @@ export function DraggableSticker({ sticker }: {sticker: Sticker}){
 
     return(
         <img
+            onDoubleClick={() => {
+            // Ask first so a stray double-click doesn't wipe a sticker.
+            if (confirm("Remove this sticker?")) {
+            deleteSticker(sticker.id);
+            }
+        }}
             src={`/stickers/${sticker.stickerKey}.png`}
             alt="sticker"
             onMouseDown={() => setDragging(true)}

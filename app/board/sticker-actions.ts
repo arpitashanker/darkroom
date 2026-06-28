@@ -7,6 +7,20 @@ import { getSticker } from "@/lib/stickers";
 
 //Unlock ( buy) a sticker and place it on the board 
 //Called from a button in the tray. The broswer passes ONLy the sticker key 
+
+// Delete a placed sticker — only if it belongs to the logged-in user.
+export async function deleteSticker(stickerId: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not logged in");
+
+  // The profileId check means User A can never delete User B's sticker.
+  await prisma.placedSticker.deleteMany({
+    where: { id: stickerId, profileId: user.id },
+  });
+
+  revalidatePath("/board");
+}
 export async function unlockSticker(stickerKey: string){
     //1. who is asking? get the logged in user from supabase (server-side, trusted)
     const supabase = await createClient();
@@ -53,6 +67,20 @@ export async function unlockSticker(stickerKey: string){
     revalidatePath("/board");
 }
 
+
+// Delete a photo row — only if it belongs to the logged-in user.
+export async function deletePhoto(photoId: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not logged in");
+
+  await prisma.photo.deleteMany({
+    where: { id: photoId, profileId: user.id },
+  });
+
+  revalidatePath("/board");
+}
+
 //Save a sticker's new position after the user drags it (same idea as polaroids).
 export async function moveSticker(stickerId: string, x: number, y: number){
     const supabase = await createClient();
@@ -68,5 +96,7 @@ export async function moveSticker(stickerId: string, x: number, y: number){
         data: { x, y },
     });
     revalidatePath("/board")
+
+    // Delete a placed sticker — only if it belongs to the logged-in user.
 
 }

@@ -51,6 +51,6 @@ export const config = {
     //the matcher uses reges to run on all paths EXCEPT static files and images 
     matcher: [
         //Match everything except: _next/static, _next/image, favicon, and common image file types 
-        "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+        "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|heic|jpeg|gif|webp)$).*)",
     ],
 };
