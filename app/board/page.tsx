@@ -61,29 +61,39 @@ export default async function BoardPage() {
   //<StickerTrap points={profile.points} />
   // {{placedSticker.map((s) => DraggableSticker key={s.id} sticker={s} />)}}
   {/* Link to the clubs page */}
-<Link
-  href="/clubs"                                  // goes to app/clubs/page.tsx
-  style={{
-    padding: "6px 12px",
-    background: "#333",
-    color: "white",
-    borderRadius: 6,
-    textDecoration: "none",
-  }}
->
-  Clubs
-</Link>
 
-
-  // Hand the data to the interactive client component:
-  return (
-  <BoardClient
+return (
+    // A fragment <> lets us return the link AND the board side by side
+    <>
+      {/* Clubs link — sits on top of the board */}
+      <Link
+        href="/clubs"
+        style={{
+          position: "fixed",        // pin it so it floats above the board
+          top: 16,                  // 16px from the top
+          right: 16,                // 16px from the right
+          zIndex: 50,               // sit above the board surface
+          padding: "6px 12px",
+          background: "#333",
+          color: "white",
+          borderRadius: 6,
+          textDecoration: "none",
+        }}
+      >
+        Clubs
+      </Link>
+    
+  
+  
+  <BoardClient //Hand the data to the interactive client component:
     background={profile?.background ?? "/backgrounds/bg1.png"}
     photos={photos}
     userId={data.user.id}
     points={profile?.points ?? 0}
     placedStickers={placedStickers}  // NEW — hand the stickers to the client too
   />
+  </>
+  
 );
   
 }

@@ -33,7 +33,15 @@ export default async function ClubPage({ params }: { params: Promise<{ id: strin
 
   // Is the person viewing this page the curator? Controls what they can see/do.
   const amCurator = club.curatorId === me!.id;               // true only for the boss
+// Find THIS user's actual membership row in THIS club (if any)
+  const myMembership = club.memberships.find(
+    (m) => m.profileId === me!.id        // a membership that belongs to me
+  );
 
+  // If I'm neither the curator nor a real member, I don't belong here — block access.
+  if (!amCurator && !myMembership) {
+    return <p style={{ padding: 40 }}>You don't have access to this club.</p>;
+  }
   return (
     <div style={{ maxWidth: 600, margin: "40px auto", padding: 20 }}>
       <h1 style={{ fontSize: 28 }}>{club.name}</h1>
