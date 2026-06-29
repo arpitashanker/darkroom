@@ -8,6 +8,7 @@ import { redirect } from "next/navigation";           // bounce logged-out users
 import  BoardClient   from "./boardClient";  
 import { StickerTray } from "./StickerTray";
 import { DraggableSticker } from "./DraggableSticker";            // the interactive part (Task 6b)
+import Link from "next/link";  // Next's link component for navigating between pages
 
 const prisma = new PrismaClient(); // one Prisma instance for queries
 
@@ -59,7 +60,19 @@ export default async function BoardPage() {
   //The in the jsx, alongside you <StickerTray /> and polaroids:
   //<StickerTrap points={profile.points} />
   // {{placedSticker.map((s) => DraggableSticker key={s.id} sticker={s} />)}}
-  
+  {/* Link to the clubs page */}
+<Link
+  href="/clubs"                                  // goes to app/clubs/page.tsx
+  style={{
+    padding: "6px 12px",
+    background: "#333",
+    color: "white",
+    borderRadius: 6,
+    textDecoration: "none",
+  }}
+>
+  Clubs
+</Link>
 
 
   // Hand the data to the interactive client component:

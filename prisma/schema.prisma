@@ -1,8 +1,6 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -24,12 +22,13 @@ model Profile {
   createdAt           DateTime @default(now()) //now() fills in current date and time 
   photos              Photo[]
   placedStickers      PlacedSticker[] //a user can place many stickers 
+  memberships         Membership[] //every club this user belongs to (their Membership rows)
+  curatedClubs        Club[] //clubs where THIS user is the curator (the boss)
 }
 
 //@id = fields primary key, unique identifier for each row 
 //@default(...) sets a value automatically when a new row is created and you didnt provide one 
 
-//Add this relation line INSIDE your existing Profile model --
 model Photo {
   id        String   @id @default(uuid()) //unique id for each photo, auto generated 
   path      String
@@ -40,18 +39,52 @@ model Photo {
   profileId String
   profile   Profile  @relation(fields: [profileId], references: [id]) //connected profileId to Profile.id
 }
+
 //A sticker the user has unlocked AND placed on thier board
 //One row = one sticker sitting at one spot on the persons board 
-model PlacedSticker{
-  id              String     @id @default(uuid()) //unique id for each photo, auto generated 
-  stickerKey      String                          // "sticker-1: tells us which PNG 
-  x               Float      @default(0)          // horicontal psoition on the board
-  y               Float      @default(0)          //vertical position on board 
+model PlacedSticker {
+  id         String   @id @default(uuid()) //unique id for each sticker placement, auto generated 
+  stickerKey String                        // "sticker-1": tells us which PNG 
+  x          Float    @default(0)          // horicontal psoition on the board
+  y          Float    @default(0)          //vertical position on board 
 
-//Link this sticker to the Profile (user) that owns it 
-profile           Profile    @relation(fields: [profileId], references: [id])
-profileId         String                          //The owner's Profile id 
+  //Link this sticker to the Profile (user) that owns it 
+  profile    Profile  @relation(fields: [profileId], references: [id])
+  profileId  String                        //The owner's Profile id 
 
-createdAt         DateTime   @default(now())
+  createdAt  DateTime @default(now())
+}
 
+//A club is a group. One person (the curator) runs it; others join as members.
+//One row = one club.
+model Club {
+  id          String       @id @default(uuid()) //unique id for the club, auto generated 
+  name        String                            //the club's display name, e.g. "Photo Friends"
+  createdAt   DateTime     @default(now())       //when the club was made
+
+  //WHO RUNS IT — the curator is one specific Profile (same one-parent pattern as Photo→Profile)
+  curator     Profile      @relation(fields: [curatorId], references: [id]) //ties this club to its curator
+  curatorId   String                            //the curator's Profile id
+
+  //WHO'S IN IT — back-reference to all the member records for this club
+  memberships Membership[]                      //lets you read club.memberships in code
+}
+
+//The MIDDLE table. One row = "this person is in this club, with this role."
+//Points at TWO parents: a Profile (the person) and a Club (the group).
+model Membership {
+  id         String   @id @default(uuid()) //unique id for this membership record 
+  role       String   @default("member")   //"curator" or "member" — controls what they're allowed to do 
+  createdAt  DateTime @default(now())        //when they joined 
+
+  //LINK 1 — which PERSON this membership is for 
+  profile    Profile  @relation(fields: [profileId], references: [id]) //ties this row to a Profile
+  profileId  String                          //the member's Profile id 
+
+  //LINK 2 — which CLUB this membership is for 
+  club       Club     @relation(fields: [clubId], references: [id]) //ties this row to a Club
+  clubId     String                          //the club's id 
+
+  //no two rows can say the same person is in the same club twice — the DB enforces it 
+  @@unique([profileId, clubId])
 }
