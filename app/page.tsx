@@ -1,68 +1,92 @@
-//main route where u put UI 
-import Image from "next/image";
+// Your home page / dashboard — a SERVER component (no "use client").
+// It fetches your stats on the server, then shows them with navigation.
+import { prisma } from "@/lib/prisma";                  // database client
+import { createClient } from "@/utils/supabase/server"; // Supabase server helper
+import { redirect } from "next/navigation";             // bounce logged-out visitors
+import Link from "next/link";                            // for navigation buttons
 
-//a file can nly have 1 default function 
+export default async function Home() {
+  // ── WHO'S LOGGED IN? (same pattern as your other pages) ──
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getUser();
+  if (!data.user) {
+    redirect("/login");                                  // not logged in → login page
+  }
 
-export default function Home() {
+  // Find this user's Profile (holds their points)
+  const me = await prisma.profile.findUnique({
+    where: { email: data.user.email! },
+  });
+
+  // ── FETCH THE THREE STATS ──
+  // count() asks the database "how many rows match?" — more efficient than
+  // fetching all the rows and counting them in JavaScript.
+  const photoCount = await prisma.photo.count({
+    where: { profileId: me!.id },                        // how many photos are mine?
+  });
+
+  const clubCount = await prisma.membership.count({
+    where: { profileId: me!.id },                        // how many clubs am I in?
+  });
+
+  const points = me?.points ?? 0;                        // my points (already on Profile)
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    // Full-height white page, centered content
+    <div className="min-h-screen w-full bg-white flex flex-col items-center py-16 px-6">
+      <div className="w-full max-w-3xl">
+
+        {/* GREETING — big serif headline for that polished look */}
+        <h1 className="text-4xl font-bold text-sky-900 font-serif mb-2">
+          Welcome back
+        </h1>
+        <p className="text-slate-500 mb-10">
+          {me?.email}                                    {/* shows your email */}
+        </p>
+
+        {/* STAT CARDS — three numbers side by side */}
+        <div className="grid grid-cols-3 gap-4 mb-10">
+          {/* grid-cols-3 = three equal columns · gap-4 = space between them */}
+
+          {/* Points card */}
+          <div className="bg-sky-50 rounded-xl p-6 text-center">
+            <div className="text-3xl font-bold text-sky-700">{points}</div>
+            <div className="text-sm text-slate-500 mt-1">Points</div>
+          </div>
+
+          {/* Photos card */}
+          <div className="bg-sky-50 rounded-xl p-6 text-center">
+            <div className="text-3xl font-bold text-sky-700">{photoCount}</div>
+            <div className="text-sm text-slate-500 mt-1">Photos</div>
+          </div>
+
+          {/* Clubs card */}
+          <div className="bg-sky-50 rounded-xl p-6 text-center">
+            <div className="text-3xl font-bold text-sky-700">{clubCount}</div>
+            <div className="text-sm text-slate-500 mt-1">Clubs</div>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+
+        {/* NAVIGATION BUTTONS — big links to the two main features */}
+        <div className="flex flex-col sm:flex-row gap-4">
+          {/* stacked on mobile, side-by-side (sm:flex-row) on wider screens */}
+
+          <Link
+            href="/board"
+            className="flex-1 bg-sky-500 text-white text-center py-4 rounded-xl text-lg font-medium hover:bg-sky-600 transition-colors no-underline"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            My Board →
+          </Link>
+
+          <Link
+            href="/clubs"
+            className="flex-1 border border-sky-200 text-sky-700 text-center py-4 rounded-xl text-lg font-medium hover:bg-sky-50 transition-colors no-underline"
           >
-            Documentation
-          </a>
+            My Clubs →
+          </Link>
         </div>
-      </main>
+
+      </div>
     </div>
   );
 }

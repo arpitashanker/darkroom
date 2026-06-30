@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"; // lets us remember things on screen (signed photo URLs)
 import { createClient } from "@/utils/supabase/client"; //browser Supabase (Task 4)
-import { saveBackground, savePhoto, savePhotoPosition } from "./actions"; //our backend function 
+import { deletePhoto, saveBackground, savePhoto, savePhotoPosition } from "./actions"; //our backend function 
 import { StickerTray } from "./StickerTray";
 import { DraggableSticker } from "./DraggableSticker";
 import type { PlacedSticker } from "@prisma/client"; // Prisma generated this type when you ran `npx prisma generate`
@@ -203,8 +203,9 @@ async function handleMouseUp(){
             <div
                 style={{
                     display: "inline-block",
-                    background: "rgba(0,0,0,0.6)", //semi-transparent dark pill so it reads on any background
-                    color: "white",
+                    background: "rgba(255,255,255,0.9)", // translucent white pill — reads on any background
+                    color: "#0c4a6e",                    // sky-900 text
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.15)", // soft shadow so it lifts off the background
                     padding: "0.4rem 0.9rem",
                     borderRadius: 999,             //fully rounded pill
                     fontWeight: "bold",
@@ -227,8 +228,9 @@ async function handleMouseUp(){
                             height: 50,
                             objectFit: "cover",
                             cursor: "pointer",
-                            border: background === bg ? "3px solid white" : "1px solid gray",
-                            borderRadius: 4,
+                            border: background === bg ? "3px solid #0ea5e9" : "1px solid #cbd5e1", // sky-500 when selected, slate-300 otherwise
+                            borderRadius: 8,             // a bit more rounded
+
                         }}
                     />
                 ))}
@@ -238,7 +240,8 @@ async function handleMouseUp(){
             <label
                 style={{
                     display: "inline-block",        //sit nicely inline
-                    background: "grey",             //button color
+                    background: "#0ea5e9",          // sky-500 button
+                    color: "white",                // white text on the blue
                     padding: "0.5rem 1rem",         //comfortable size (fixed: was "1 rem")
                     borderRadius: 6,                //rounded
                     cursor: "pointer",              //clickable
@@ -266,6 +269,10 @@ async function handleMouseUp(){
                     <div
                         key={photo.id}
                         onMouseDown={(e) => handleMouseDown(e, photo.id)} // NEW: grab to start dragging
+                        onDoubleClick={async () => {                       // double-click to delete
+                          await deletePhoto(photo.id);                    // server deletes it (checks it's yours)
+                          window.location.reload();                       // refresh so it disappears
+                        }}
                         style={{
                             position: "absolute",          // NEW: float anywhere on the board
                             left: pos.x,                   // NEW: horizontal position from x

@@ -93,3 +93,32 @@ export async function savePhotoPosition(photoId: string, x: number, y: number){
     //Note: no revalidate Path here on purpose because the page shouldnt reload eveyrtime you drop a photo 
     //the browser already shows it in the new spots, so it should just quietly save 
 }
+    // Action: delete one photo from the board.
+// SECURITY: only lets you delete a photo that is actually YOURS.
+    export async function deletePhoto(photoId: string) {
+    const user = await getUser();                 // who's calling?
+    if (!user) throw new Error("Not logged in");  // block anyone not signed in
+
+    // Look up the photo they want to delete:
+    const photo = await prisma.photo.findUnique({
+        where: { id: photoId },                      // the photo with this id
+    });
+
+    if (!photo) throw new Error("Photo not found"); // already gone / bad id
+
+    // ── THE OWNERSHIP CHECK ──
+    // Does this photo belong to the person asking to delete it?
+    // Without this, someone could delete ANYONE's photo by passing its id.
+    if (photo.profileId !== user.id) {            // not their photo...
+        throw new Error("That's not your photo");   // ...refuse. This runs in the kitchen — un-fakeable.
+    }
+
+    // Passed the check — delete the row from the database:
+    await prisma.photo.delete({
+        where: { id: photoId },                      // remove this specific photo
+    });
+
+    revalidatePath("/board");                      // refresh the board so the photo disappears
+    }
+
+

@@ -1,93 +1,100 @@
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
-import { addMember } from "../club-actions";                 // ../ because we're one folder deeper now
+import Link from "next/link";
+import { addMember } from "../club-actions";
 
-// The page receives { params } — params.id is the club id from the URL /clubs/SOMEID
 export default async function ClubPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;                               // in Next 15, params is a promise — await it
+  const { id } = await params;
 
   const supabase = await createClient();
   const { data } = await supabase.auth.getUser();
   if (!data.user) {
-    redirect("/login");                                      // protected
+    redirect("/login");
   }
 
   const me = await prisma.profile.findUnique({
     where: { email: data.user.email! },
   });
 
-  // Load the club, AND its memberships, AND each member's profile (for their email).
   const club = await prisma.club.findUnique({
-    where: { id },                                           // this club, from the URL
-    include: {
-      memberships: {                                         // its member records...
-        include: { profile: true },                         // ...and the Profile behind each one
-      },
-    },
+    where: { id },
+    include: { memberships: { include: { profile: true } } },
   });
 
-  if (!club) {                                               // bad URL / deleted club
-    return <p style={{ padding: 40 }}>Club not found.</p>;
+  if (!club) {
+    return <p className="p-10 text-slate-600">Club not found.</p>;
   }
 
-  // Is the person viewing this page the curator? Controls what they can see/do.
-  const amCurator = club.curatorId === me!.id;               // true only for the boss
-// Find THIS user's actual membership row in THIS club (if any)
-  const myMembership = club.memberships.find(
-    (m) => m.profileId === me!.id        // a membership that belongs to me
-  );
+  const amCurator = club.curatorId === me!.id;
 
-  // If I'm neither the curator nor a real member, I don't belong here — block access.
+  const myMembership = club.memberships.find((m) => m.profileId === me!.id);
+
   if (!amCurator && !myMembership) {
-    return <p style={{ padding: 40 }}>You don't have access to this club.</p>;
+    return <p className="p-10 text-slate-600">You don&apos;t have access to this club.</p>;
   }
+
   return (
-    <div style={{ maxWidth: 600, margin: "40px auto", padding: 20 }}>
-      <h1 style={{ fontSize: 28 }}>{club.name}</h1>
-      <p style={{ color: "#999", marginBottom: 24 }}>
-        {amCurator ? "You are the curator" : "You are a member"}  {/* shows your status */}
-      </p>
+    <div className="min-h-screen w-full bg-white">
+      <div className="max-w-xl mx-auto py-10 px-5">
 
-      {/* MEMBER LIST — everyone sees this */}
-      <h2 style={{ fontSize: 20, marginBottom: 10 }}>Members</h2>
-      {club.memberships.map((m) => (                          // one row per member
-        <div
-          key={m.id}
-          style={{ padding: 10, borderBottom: "1px solid #eee" }}
-        >
-          {m.profile.email}                                  {/* the member's email */}
-          <span style={{ color: "#999", marginLeft: 8 }}>
-            ({m.role})                                        {/* curator or member */}
-          </span>
-        </div>
-      ))}
+        {/* ← Home link, back to the dashboard */}
+        <Link href="/" className="text-sky-600 hover:text-sky-700 no-underline text-sm">
+          ← Home
+        </Link>
 
-      {/* ADD MEMBER — ONLY the curator sees this whole block.
-          A plain member never even gets the form rendered.
-          (And even if they forced the action, addMember re-checks on the server.) */}
-      {amCurator && (
-        <form
-          action={async (formData: FormData) => {            // inline server action wrapper
-            "use server";                                    // this little function runs on the server
-            const email = formData.get("email") as string;  // read the typed email
-            await addMember(id, email);                      // call our action with this club + that email
-          }}
-          style={{ marginTop: 24, display: "flex", gap: 8 }}
-        >
-          <input
-            name="email"                                    //{/* matches formData.get("email") */}
-            placeholder="Add member by email"
-            style={{ flex: 1, padding: 8, border: "1px solid #ccc", borderRadius: 6 }}
-          />
-          <button
-            type="submit"
-            style={{ padding: "8px 16px", background: "#333", color: "white", borderRadius: 6 }}
+        <h1 className="text-3xl font-bold text-sky-900 font-serif mt-4">{club.name}</h1>
+        <p className="text-slate-400 mb-6">
+          {amCurator ? "You are the curator" : "You are a member"}
+        </p>
+
+        {/* MEMBER LIST */}
+        <h2 className="text-xl font-semibold text-slate-700 mb-3">Members</h2>
+        {club.memberships.map((m) => (
+          <div
+            key={m.id}
+            className="flex justify-between items-center p-3 bg-sky-50 rounded-lg mb-2 border border-slate-200"
           >
-            Add
-          </button>
-        </form>
-      )}
+            <span className="text-slate-800">
+              {m.profile.email}
+              <span className="text-slate-400 ml-2">({m.role})</span>
+            </span>
+
+            {amCurator && m.profileId !== me!.id && (
+              <Link
+                href={`/clubs/${id}/member/${m.profileId}`}
+                className="text-sky-600 hover:text-sky-700 underline text-sm"
+              >
+                View board
+              </Link>
+            )}
+          </div>
+        ))}
+
+        {/* ADD MEMBER — curator only */}
+        {amCurator && (
+          <form
+            action={async (formData: FormData) => {
+              "use server";
+              const email = formData.get("email") as string;
+              await addMember(id, email);
+            }}
+            className="mt-6 flex gap-2"
+          >
+            <input
+              name="email"
+              placeholder="Add member by email"
+              className="flex-1 p-2 border border-slate-300 rounded-md focus:border-sky-500 focus:outline-none"
+            />
+            <button
+              type="submit"
+              className="px-4 py-2 bg-sky-500 text-white rounded-md hover:bg-sky-600 transition-colors"
+            >
+              Add
+            </button>
+          </form>
+        )}
+      </div>
     </div>
   );
 }
